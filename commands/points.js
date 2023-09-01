@@ -1,16 +1,14 @@
+const { SlashCommandBuilder } = require('discord.js');
+
 module.exports = {
-	name: "Points",
-	description: "Affiche les points de l'auteur de la commande",
-	command: "points",
-  action: (message, vars, callback) => {
-		const pointsManager = vars["pointsManager"];
-		const userPoints = pointsManager.getPoints(message.author.id);
-		const userPlace = pointsManager.getPlace(message.author.id);
+  data: new SlashCommandBuilder()
+	  .setName("points")
+	  .setDescription(`🎖️ Affiche les ${global.point.name}s de l'auteur de la commande`),
+  async execute(interaction) {
+    const pointsManager = global.pointsManager;
+		const userPoints = pointsManager.getPoints(interaction.user.id);
+		const userPlace = pointsManager.getPlace(interaction.user.id);
 		
-		message.reply(`Tu es **${userPlace + ((userPlace == 1) ? "er" : "e")}** avec un total de \`${userPoints}\` points !`);
-    callback();
-	},
-	neededPermissions: [],
-	powerLevel: 0,
-	neededVars: ["pointsManager"]
+		interaction.reply({content: `Tu es **${userPlace + ((userPlace == 1) ? "er" : "e")}** avec un total de \`${Number(userPoints.toFixed(2))}\` ${global.point.emoji} !`, ephemeral: true});
+  }
 }

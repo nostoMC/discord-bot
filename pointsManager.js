@@ -5,6 +5,7 @@ class PointsManager {
 	constructor(filePath) {
 		this.filePath = filePath;
 		this.refresh();
+    global.pointsManager = this;
 	}
 
 	refresh() {
@@ -30,7 +31,7 @@ class PointsManager {
 	}
 
   add(userID, points) {
-		console.log(`Add ${points} points to ${userID}`);
+		console.log(`➕ Add ${points} ${global.point.name}s to ${userID}`);
 		this.data[this.getIndex(userID)].nb += points;
     this.updateFile();
 	}

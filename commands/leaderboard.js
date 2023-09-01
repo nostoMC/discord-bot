@@ -1,29 +1,29 @@
-const { EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
 module.exports = {
-	name: "Classement",
-	description: "Affiche les meilleurs utilisateus au niveau des points",
-	command: "leaderboard",
-  action: (message, vars, callback) => {
-		const pointsManager = vars["pointsManager"];
+  data: new SlashCommandBuilder()
+	  .setName("leaderboard")
+	  .setDescription(`🏆 Affiche les meilleurs utilisateus au niveau des ${global.point.name}s`),
+  async execute(interaction) {
+    const pointsManager = global.pointsManager;
     const leaderboard = pointsManager.getLeaderboard();
-		const userPoints = pointsManager.getPoints(message.author.id);
-		const userPlace = pointsManager.getPlace(message.author.id);
+		const userPoints = pointsManager.getPoints(interaction.user.id);
+		const userPlace = pointsManager.getPlace(interaction.user.id);
 		
 		let best = "";
 
 		for (let i = 0; i < 5; i++) {
 			const data = leaderboard[i];
 			if (data != undefined) {
-				best += `**${i+1}.** <@${data.id}> - \`${data.nb}\`\n`;
+				best += `**${i+1}.** <@${data.id}> - \`${Number(data.nb.toFixed(2))}\` ${global.point.emoji}\n`;
 			}
 		}
 
 		const embed = new EmbedBuilder()
 			.setColor(0x00e9fe)
-			.setTitle("Classement")
+			.setTitle("🧾 Classement")
 			.addFields({
-				name: "Les meilleurs",
+				name: "🏆 Les meilleurs",
 			  value: best
 		});
 
@@ -34,20 +34,16 @@ module.exports = {
 				const place = userPlace + i;
 				const data = leaderboard[place-1];
 				if (data != undefined) {
-				  perso += `**${place}.** <@${data.id}> - \`${data.nb}\`\n`;
+				  perso += `**${place}.** <@${data.id}> - \`${Number(data.nb.toFixed(2))}\` ${global.point.emoji}\n`;
 				}
 			}
 			
 			embed.addFields({
-				name: "Ta place",
+				name: "🎖️ Ta place",
 				value: perso
 			});
 		}
 		
-		message.reply({embeds: [embed]});
-    callback();
-	},
-	neededPermissions: [],
-	powerLevel: 0,
-	neededVars: ["pointsManager"]
+		interaction.reply({embeds: [embed], ephemeral: true});
+  }
 }

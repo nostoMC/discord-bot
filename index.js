@@ -7,26 +7,15 @@ app.use("/", (req, res) => {
   res.send(new Date());
 });
 
-const fs = require("fs");
-const PointsManager = require("./pointsManager.js");
-const pointsManager = new PointsManager("./data.json");
-
 const TOKEN = process.env['DISCORD_TOKEN'];
-const { Client, Events, GatewayIntentBits } = require('discord.js');
+const ID = process.env["DISCORD_ID"]
+const { Client, Events, GatewayIntentBits, Collection } = require('discord.js');
+const { REST } = require('@discordjs/rest');
+const { Routes } = require('discord-api-types/v9');
+const fs = require('node:fs');
+const PointsManager = require("./pointsManager.js");
+new PointsManager("./data.json");
 
-const client = new Client({ intents: [
-	GatewayIntentBits.Guilds,
-	GatewayIntentBits.MessageContent,
-  GatewayIntentBits.GuildMessages
-]});
-
-client.once(Events.ClientReady, c => {
-	console.log(`Ready! Logged in as ${c.user.tag}`);
-});
-
-const PREFIX = require("./config.json").prefix;
-const COMMANDS = [];
-const { Command, findCommand } = require("./commands.js");
 const CronJob = require('cron').CronJob;
 let userTimed = [];
 
@@ -41,54 +30,66 @@ const job = new CronJob(
 );
 job.start();
 
-const commands = fs.readdirSync("./commands/");
-for (const commandFileName of commands) {
-	const commandData = require(`./commands/${commandFileName}`);
-  const command = new Command(commandData);
-	COMMANDS.push(command);
+global.point = {
+  name: "Nostoken",
+  emoji: "<:coin:1146927699064016956>"
 }
+
+const client = new Client({ intents: [
+	GatewayIntentBits.Guilds,
+	GatewayIntentBits.MessageContent,
+  GatewayIntentBits.GuildMessages
+]});
+
+const commands = [];
+client.commands = new Collection();
+const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+
+for (const file of commandFiles) {
+	const command = require(`./commands/${file}`);
+	commands.push(command.data.toJSON());
+  client.commands.set(command.data.toJSON().name, command);
+}
+
+const rest = new REST({ version: '9' }).setToken(TOKEN);
+
+(async () => {
+	try {
+		console.log("🔄 Started refreshing application (/) commands.");
+
+		await rest.put(
+			Routes.applicationCommands(ID),
+			{ body: commands },
+		);
+
+		console.log("✅ Successfully reloaded application (/) commands.");
+	} catch (error) {
+		console.error(error);
+	}
+})();
+
+client.once(Events.ClientReady, c => {
+	console.log(`✅ Ready! Logged in as ${c.user.tag}`);
+});
+
+client.on('interactionCreate', async interaction => {
+	if (interaction.isCommand()) {
+    const command = client.commands.get(interaction.commandName);
+    if (!command) return;
+    try {
+      await command.execute(interaction);
+    } catch (error) {
+      if (error) console.error(error);
+      await interaction.reply({ content: "❌ There was an error while executing this command!", ephemeral: true });
+    }
+  }
+});
 
 client.on("messageCreate", (message) => {
 	if (message.author.bot) return;
-	if (!message.content.startsWith(PREFIX)) {
-    if (userTimed.includes(message.author.id)) return;
-		userTimed.push(message.author.id);
-    pointsManager.add(message.author.id, 0.01);
-		return;
-	}
-
-	const commandName = message.content.split(" ")[0].slice(1);
-	const command = findCommand(COMMANDS, commandName);
-	
-	if (command == null) {
-    message.react("❔");
-    message.reply(`Oops, mauvaise commande ! Affiche la liste des commandes avec \`${PREFIX}help\``);
-		return
-	}
-
-	if (!command.hasPermissions(message.member)) {
-    message.react("❌");
-		message.reply(`Oh, tu n'as pas l'autorisation d'utiliser cette commande ! Il te manque une ou plusieurs permission(s)`);
-		return
-	}
-
-	const vars = {"COMMANDS": COMMANDS, "pointsManager": pointsManager};
-	const requiredVars = {};
-	for (const neededVar of command.neededVars) {
-		requiredVars[neededVar] = vars[neededVar];
-	}
-
-	message.react("✅");
-	try {
-	  command.action(message, requiredVars, () => {
-		  pointsManager.refresh();
-	  });
-	} catch(err) {
-		message.channel.send("```" + err + "```");
-		console.log(err);
-	}
+	if (userTimed.includes(message.author.id)) return;
+	userTimed.push(message.author.id);
+  global.pointsManager.add(message.author.id, 0.01);
 });
 
 client.login(TOKEN);
-
-module.exports = { COMMANDS }
